@@ -10,7 +10,8 @@ import {
   handleHelpCommand, 
   handleHistoryCommand,
   handleProviderCommand,
-  handleModelsCommand
+  handleModelsCommand,
+  handleAdminCommand
 } from './commands.js';
 import { isValidUrl, extractUrl } from '../utils/url.js';
 import { replyWithChunks, sendTypingAction } from '../services/telegram.js';
@@ -101,12 +102,15 @@ async function processUrl(ctx: Context, env: AppEnv, url: string): Promise<void>
 /**
  * Configure Telegraf middleware/commands logic
  */
-function setupBot(bot: Telegraf, env: AppEnv) {
+function setupBot(bot: Telegraf, env: AppEnv, baseUrl?: string) {
   bot.start(async (ctx) => await handleStartCommand(ctx));
   bot.help(async (ctx) => await handleHelpCommand(ctx));
   bot.command('history', async (ctx) => await handleHistoryCommand(ctx, env));
   bot.command('provider', async (ctx) => await handleProviderCommand(ctx, env));
   bot.command('models', async (ctx) => await handleModelsCommand(ctx, env));
+  
+  // Lệnh Admin sinh Magic Link
+  bot.command('admin', async (ctx) => await handleAdminCommand(ctx, env, baseUrl));
 
   // Handler khi click chọn AI Provider trên menu
   bot.action(/set_provider_(groq|xai|cloudflare)/, async (ctx) => {
@@ -114,12 +118,9 @@ function setupBot(bot: Telegraf, env: AppEnv) {
     const chatId = ctx.chat?.id;
     
     if (chatId) {
-      // Lưu tùy chọn vào D1 DB
       await setPreferredProvider(env.DB, chatId, provider);
       
       const label = provider === 'groq' ? '🚀 Groq' : provider === 'xai' ? '🐦 xAI' : '☁️ Cloudflare AI';
-      
-      // Update thông điệp / Popup
       await ctx.answerCbQuery(`Đã thiết lập ${label} làm mặc định!`);
       await ctx.editMessageText(`✅ Bạn đã chọn <b>${label}</b> làm trợ lý chính.\n<i>Hãy gửi link để trải nghiệm.</i>`, {
         parse_mode: 'HTML'
@@ -166,8 +167,8 @@ function setupBot(bot: Telegraf, env: AppEnv) {
 /**
  * Webhook Entrypoint được gọi ở Hono Route
  */
-export async function handleWebhook(body: any, env: AppEnv): Promise<void> {
+export async function handleWebhook(body: any, env: AppEnv, baseUrl?: string): Promise<void> {
   const bot = new Telegraf(env.TELEGRAM_BOT_TOKEN);
-  setupBot(bot, env);
+  setupBot(bot, env, baseUrl);
   await bot.handleUpdate(body);
 }

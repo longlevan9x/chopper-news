@@ -15,6 +15,13 @@
       "when": 1776686931117,
       "tag": "0001_sleepy_serpent_society",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1776687878271,
+      "tag": "0002_funny_psynapse",
+      "breakpoints": true
     }
   ]
 }

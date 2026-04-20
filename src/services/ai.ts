@@ -24,7 +24,8 @@ export async function summarizeWithFallback(
   env: AppEnv,
   preferredProvider: SupportedProviders,
   content: string,
-  sourceUrl: string
+  sourceUrl: string,
+  chatId: number = 0
 ): Promise<{ text: string; providerUsed: SupportedProviders }> {
   // Sắp xếp thứ tự gọi (Preferred luôn đứng đầu)
   const allProviders: SupportedProviders[] = ['groq', 'xai', 'cloudflare'];
@@ -38,12 +39,12 @@ export async function summarizeWithFallback(
   let lastError: Error | null = null;
 
   for (const provider of queue) {
-    logger.info(`[AI] Attempting summarization with ${provider}...`);
+    logger.info(`[AI] Attempting summarization with ${provider} (User: ${chatId})...`);
     try {
       let resultText = '';
 
       if (provider === 'groq') {
-        const apiKey = await getAppSecret('GROQ_API_KEY', env);
+        const apiKey = await getAppSecret('GROQ_API_KEY', env, chatId);
         if (!apiKey) throw new Error('Groq API Key is missing');
         
         const groq = createGroq({ apiKey });
@@ -55,7 +56,7 @@ export async function summarizeWithFallback(
         resultText = text;
 
       } else if (provider === 'xai') {
-        const apiKey = await getAppSecret('XAI_API_KEY', env);
+        const apiKey = await getAppSecret('XAI_API_KEY', env, chatId);
         if (!apiKey) throw new Error('xAI API Key is missing');
 
         const grok = createXai({ apiKey });

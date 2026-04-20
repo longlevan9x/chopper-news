@@ -4,37 +4,58 @@
  */
 
 import { drizzle } from 'drizzle-orm/d1';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { appSecrets } from '../db/schema.js';
 import { AppEnv } from '../config.js';
 
 /**
- * Lấy một giá trị bí mật theo tên.
+ * Lấy một giá trị bí mật theo tên và User ID.
  * Luồng ưu tiên: 
- * 1. Database app_secrets table
- * 2. Environment (env) bindings
+ * 1. Key cá nhân của User trong Database (D1)
+ * 2. Key mặc định của hệ thống (chatId = 0) trong Database
+ * 3. Environment (env) bindings (Lưới phòng thủ cuối)
  */
 export async function getAppSecret(
   keyName: keyof AppEnv | string,
-  env: AppEnv
+  env: AppEnv,
+  chatId: number = 0
 ): Promise<string | undefined> {
   try {
     const db = drizzle(env.DB);
     
-    // 1. Check Database
-    const result = await db.select()
+    // 1. Kiểm tra Key riêng của User (Nếu có chatId)
+    if (chatId !== 0) {
+      const userResult = await db.select()
+        .from(appSecrets)
+        .where(
+          and(
+            eq(appSecrets.keyName, keyName),
+            eq(appSecrets.chatId, chatId)
+          )
+        )
+        .limit(1);
+
+      if (userResult.length > 0) return userResult[0].keyValue;
+    }
+
+    // 2. Kiểm tra Key hệ thống (chatId = 0)
+    const systemResult = await db.select()
       .from(appSecrets)
-      .where(eq(appSecrets.keyName, keyName))
+      .where(
+        and(
+          eq(appSecrets.keyName, keyName),
+          eq(appSecrets.chatId, 0)
+        )
+      )
       .limit(1);
 
-    if (result.length > 0) {
-      return result[0].keyValue;
-    }
+    if (systemResult.length > 0) return systemResult[0].keyValue;
+
   } catch (err) {
     console.warn(`[Secrets] Lỗi khi truy vấn DB cho key ${keyName}:`, err);
   }
 
-  // 2. Fallback to Env
+  // 3. Fallback to Env (Môi trường máy chủ)
   if (keyName in env) {
     return env[keyName as keyof AppEnv] as any;
   }
@@ -43,22 +64,24 @@ export async function getAppSecret(
 }
 
 /**
- * Lưu/Cập nhật Key vào Database
+ * Lưu/Cập nhật Key vào Database cho User cụ thể
  */
 export async function setAppSecret(
   keyName: string,
   keyValue: string,
-  dbBinding: D1Database
+  dbBinding: D1Database,
+  chatId: number = 0
 ): Promise<void> {
   const db = drizzle(dbBinding);
   
   await db.insert(appSecrets)
     .values({
+      chatId,
       keyName,
       keyValue
     })
     .onConflictDoUpdate({
-      target: appSecrets.keyName,
+      target: [appSecrets.chatId, appSecrets.keyName],
       set: {
         keyValue,
         updatedAt: new Date().toISOString()

@@ -38,11 +38,18 @@ export const userPreferences = sqliteTable('user_preferences', {
   updatedAt: text('updated_at').default(sql`(datetime('now', 'localtime'))`),
 });
 /**
- * Bảng lưu trữ cấu hình bí mật (API Keys) của hệ thống
+ * Bảng lưu trữ cấu hình bí mật (API Keys)
+ * Hỗ trợ cả Key hệ thống (chat_id = 0) và Key cá nhân của từng User
  */
 export const appSecrets = sqliteTable('app_secrets', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  keyName: text('key_name').notNull().unique(), // Ví dụ: 'GROQ_API_KEY'
+  chatId: integer('chat_id').default(0).notNull(), // 0 đại diện cho System/Default Keys
+  keyName: text('key_name').notNull(),            // Ví dụ: 'GROQ_API_KEY'
   keyValue: text('key_value').notNull(),
   updatedAt: text('updated_at').default(sql`(datetime('now', 'localtime'))`),
+}, (table) => {
+  return {
+    // Đảm bảo mỗi User chỉ có 1 khoá cho mỗi Provider
+    unq: unique().on(table.chatId, table.keyName)
+  };
 });

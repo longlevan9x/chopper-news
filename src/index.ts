@@ -4,7 +4,7 @@
 
 import { Hono } from 'hono';
 import { handleWebhook } from './bot/handler.js';
-import { renderAdminDashboard, handleAdminSave } from './bot/admin.js';
+import { handleAdminPage, handleAdminSave } from './bot/admin.js';
 import { logger } from './utils/logger.js';
 import { AppEnv } from './config.js';
 
@@ -28,8 +28,11 @@ app.post('/webhook', async (c) => {
     const body = await c.req.json();
     logger.info('Received webhook update', { update_id: body.update_id });
 
+    const url = new URL(c.req.url);
+    const baseUrl = `${url.protocol}//${url.host}`;
+    
     // Respond OK immediately, process in background
-    c.executionCtx.waitUntil(handleWebhook(body, c.env));
+    c.executionCtx.waitUntil(handleWebhook(body, c.env, baseUrl));
 
     return c.json({ ok: true });
   } catch (error) {
@@ -41,7 +44,7 @@ app.post('/webhook', async (c) => {
 /**
  * Admin Dashboard Routes
  */
-app.get('/admin', (c) => c.html(renderAdminDashboard()));
+app.get('/admin', (c) => handleAdminPage(c));
 app.post('/admin/save', (c) => handleAdminSave(c));
 
 /**

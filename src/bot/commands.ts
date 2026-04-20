@@ -8,6 +8,7 @@ import { AppEnv } from '../config.js';
 import { getRecentSummaries, getPreferredProvider } from '../db/repository.js';
 import { escapeHtml } from '../utils/text.js';
 import { getDiscoveryModels } from '../services/models.js';
+import { generateMagicToken } from '../services/auth.js';
 
 const WELCOME_MESSAGE = `🤖 <b>CHÀO MỪNG BẠN ĐẾN VỚI CHOPPER NEWS BOT!</b>
 
@@ -119,5 +120,44 @@ export async function handleModelsCommand(ctx: Context, env: AppEnv): Promise<vo
     await replyWithChunks(ctx, msg);
   } catch (error: any) {
     await replyWithChunks(ctx, `❌ Lỗi lấy danh sách model: ${error.message}`);
+  }
+}
+
+/**
+ * Tạo link Quản trị cá nhân (Magic Link)
+ */
+export async function handleAdminCommand(ctx: Context, env: AppEnv, baseUrl?: string): Promise<void> {
+  const chatId = ctx.chat?.id;
+  if (!chatId) return;
+
+  await ctx.reply('🔑 Đăng khởi tạo đường dẫn quản trị an toàn cho bạn...');
+
+  try {
+    const token = await generateMagicToken(chatId, env);
+    
+    // Sử dụng baseUrl truyền từ worker hoặc mặc định (nếu có)
+    const host = baseUrl || 'https://chopper-news.workers.dev';
+    const adminUrl = `${host}/admin?t=${token}`;
+
+    const message = `
+🌟 <b>TRANG QUẢN TRỊ CÁ NHÂN</b>
+
+Đây là đường dẫn bí mật để bạn cấu hình API Keys riêng. Khi dùng Key cá nhân, bạn sẽ không bao giờ lo bị giới hạn bởi hệ thống chung!
+
+🔗 <b>Link cài đặt:</b>
+<a href="${adminUrl}">Mở Trang Cấu Hình AI</a>
+
+⚠️ <b>Lưu ý bảo mật:</b>
+- Đường dẫn này chỉ có hiệu lực trong <b>10 phút</b>.
+- Không gửi link này cho bất kỳ ai khác.
+- Sau khi cài Key, hãy thử lệnh /models để kiểm tra.
+    `;
+
+    await ctx.reply(message, { 
+      parse_mode: 'HTML',
+      link_preview_options: { is_disabled: true }
+    });
+  } catch (error: any) {
+    await ctx.reply(`❌ Lỗi khởi tạo link: ${error.message}`);
   }
 }

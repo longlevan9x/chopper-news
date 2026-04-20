@@ -65,11 +65,11 @@ async function fetchCloudflareModels(accountId: string, apiToken: string) {
 /**
  * Aggregate all models with error handling & fallback
  */
-export async function getDiscoveryModels(env: AppEnv) {
-  const groqKey = await getAppSecret('GROQ_API_KEY', env);
-  const xaiKey = await getAppSecret('XAI_API_KEY', env);
-  const cfToken = await getAppSecret('CLOUDFLARE_API_TOKEN', env);
-  const cfAccountId = await getAppSecret('CLOUDFLARE_ACCOUNT_ID', env);
+export async function getDiscoveryModels(env: AppEnv, chatId: number = 0) {
+  const groqKey = await getAppSecret('GROQ_API_KEY', env, chatId);
+  const xaiKey = await getAppSecret('XAI_API_KEY', env, chatId);
+  const cfToken = await getAppSecret('CLOUDFLARE_API_TOKEN', env, chatId);
+  const cfAccountId = await getAppSecret('CLOUDFLARE_ACCOUNT_ID', env, chatId);
 
   const results = {
     groq: LOCAL_FALLBACK_MODELS.groq,
