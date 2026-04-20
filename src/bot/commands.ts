@@ -8,15 +8,20 @@ import { AppEnv } from '../config.js';
 import { getRecentSummaries, getPreferredProvider } from '../db/repository.js';
 import { escapeHtml } from '../utils/text.js';
 
-const WELCOME_MESSAGE = `🗞 <b>Chào mừng đến với Chopper News Bot!</b>
+const WELCOME_MESSAGE = `🤖 <b>CHÀO MỪNG BẠN ĐẾN VỚI CHOPPER NEWS BOT!</b>
 
-Tôi là bot tóm tắt tin tức thông minh. Chỉ cần gửi cho tôi link bài viết, tôi sẽ đọc và tóm tắt thành 3-5 ý chính bằng tiếng Việt.
+Tôi là Trợ lý AI Đọc Báo Tốc Độ Cao. Tôi sẽ giúp bạn "thổi bay" mọi bài báo dài lê thê và nắm bắt thông tin chỉ trong nháy mắt.
 
-<b>Lệnh:</b>
-/start - Hiển thị lời chào
-/history - Xem lịch sử 10 bài tóm tắt gần nhất
-/provider - ⚙️ Chọn lựa AI Model sử dụng
-/help - Hướng dẫn sử dụng`;
+✨ <b>CÁCH SỬ DỤNG CỰC KỲ ĐƠN GIẢN:</b>
+Bạn chỉ cần <b>Copy 1 đường Link (URL)</b> bài viết dán thẳng vào ô chat này. Tôi sẽ tự động đi vào trang web, đọc và tóm gọn lại thành 3-5 ý chính cho bạn!
+
+💡 <b>DANH SÁCH LỆNH HỖ TRỢ:</b>
+🔹 /provider - Mở bảng chọn "Trí tuệ nhân tạo" (Đổi AI)
+🔹 /history - Xem lại 10 lịch sử bài tóm tắt gần nhất
+🔹 /help - Trợ giúp hệ thống
+🔹 /start - Mở lại bảng chào mừng này
+
+<i>Hãy gửi ngay một đường link bài báo bất kỳ (như: vnexpress, tuoitre, medium...) xuống ô chat bên dưới để trải nghiệm nhé! 👇</i>`;
 
 const HELP_MESSAGE = `📖 <b>Hướng dẫn sử dụng Chopper News Bot</b>
 

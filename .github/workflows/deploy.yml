@@ -125,6 +125,19 @@ jobs:
           command: deploy
           secrets: ${{ steps.prep_secrets.outputs.ACTIVE_SECRETS }}
 
+      - name: Auto-Set Telegram Webhook
+        if: success()
+        env:
+          WORKER_URL: ${{ secrets.WORKER_URL }}
+        run: |
+          if [ -n "$WORKER_URL" ]; then
+            WEBHOOK_TARGET="${WORKER_URL}/webhook"
+            RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook?url=${WEBHOOK_TARGET}")
+            bash scripts/tele_notify.sh "🔗 <b>Đã thiết lập Webhook:</b> <code>$WEBHOOK_TARGET</code>%0A🔹 <b>Telegram báo:</b> <i>$RESPONSE</i>"
+          else
+            bash scripts/tele_notify.sh "⚠️ <b>Bỏ qua Auto-Webhook:</b> Bạn hãy thêm biến <code>WORKER_URL</code> vào Github Secrets để hệ thống tự cấp thẻ nhé!"
+          fi
+
       - name: Notify Telegram (Done)
         if: success()
         run: bash scripts/tele_notify.sh "🎉 (2/2) Hoàn tất đưa Code lên Cloudflare Edge!"
