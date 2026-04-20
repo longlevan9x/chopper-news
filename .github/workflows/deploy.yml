@@ -12,21 +12,15 @@ on:
         type: boolean
         default: false
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    name: Build & Deploy
-    env:
-      # Bắt buộc các action chạy môi trường Node 24 thay cho 20 (Ngừa lỗi Deprecated)
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-      
-      # Inject secret environment variables cho toàn bộ flow Workflow
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
-      GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
-      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
 
+jobs:
+  build:
+    name: 🏗️ Build & Checks
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -47,7 +41,7 @@ jobs:
           👤 <b>Người đẩy:</b> $ACTOR
           📝 <b>Commit:</b> <i>$COMMIT_MSG</i>
           🔀 <b>Nhánh:</b> $BRANCH
-          ⏳ <i>Đang đóng gói Server nội bộ...</i>"
+          ⏳ <i>Đang đóng gói Server kiểm thử (Job 1/2)...</i>"
           
           bash scripts/tele_notify.sh "$MESSAGE"
 
@@ -59,7 +53,28 @@ jobs:
 
       - name: Notify Telegram (Build Status)
         if: success()
-        run: bash scripts/tele_notify.sh "✅ Build TypeScript thành công!"
+        run: bash scripts/tele_notify.sh "✅ (1/2) Build Code TypeScript thành công! Chuyển sang Job Deploy..."
+
+      - name: Notify Telegram (Failed Build)
+        if: failure()
+        run: bash scripts/tele_notify.sh "❌ Lỗi khi Build code! Quá trình Pipeline bị hủy ngang."
+
+  deploy:
+    name: 🚀 Deploy to Cloudflare
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
 
       - name: Check Migration Configuration
         id: check_migration
@@ -67,6 +82,7 @@ jobs:
           if [ -f "migration.json" ]; then
             CURRENT=$(jq -r '.current' migration.json)
             PREVIOUS=$(jq -r '.previous' migration.json)
+            echo "Tìm thấy migration.json. Current: $CURRENT, Previous: $PREVIOUS"
             if [ "$CURRENT" -gt "$PREVIOUS" ]; then
               echo "SHOULD_RUN=true" >> $GITHUB_OUTPUT
             else
@@ -83,12 +99,23 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # Môi trường CI/CD không có terminal tương tác nên Wrangler v3 tự động bỏ qua bước (y/N)
           command: d1 migrations apply chopper-news-db --remote
 
       - name: Notify Telegram (Migration)
         if: steps.apply_db.conclusion == 'success'
         run: bash scripts/tele_notify.sh "🗄 Update CSDL cấu trúc (D1 Migrations) thành công!"
+        
+      - name: Prepare Dynamic Secrets List
+        id: prep_secrets
+        run: |
+          {
+            echo 'ACTIVE_SECRETS<<EOF'
+            echo "TELEGRAM_BOT_TOKEN"
+            if [ -n "$GOOGLE_GENERATIVE_AI_API_KEY" ]; then echo "GOOGLE_GENERATIVE_AI_API_KEY"; fi
+            if [ -n "$GROQ_API_KEY" ]; then echo "GROQ_API_KEY"; fi
+            if [ -n "$XAI_API_KEY" ]; then echo "XAI_API_KEY"; fi
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
@@ -96,16 +123,12 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
-          secrets: |
-            TELEGRAM_BOT_TOKEN
-            GOOGLE_GENERATIVE_AI_API_KEY
-            GROQ_API_KEY
-            XAI_API_KEY
+          secrets: ${{ steps.prep_secrets.outputs.ACTIVE_SECRETS }}
 
       - name: Notify Telegram (Done)
         if: success()
-        run: bash scripts/tele_notify.sh "🎉 Hoàn tất đưa Code lên Cloudflare Edge!"
+        run: bash scripts/tele_notify.sh "🎉 (2/2) Hoàn tất đưa Code lên Cloudflare Edge!"
 
       - name: Notify Telegram (Failed)
         if: failure()
-        run: bash scripts/tele_notify.sh "❌ <b>CẢNH BÁO:</b> Quá trình CI/CD bị sập giữa chừng, vui lòng xem Log trên Github Actions!"
+        run: bash scripts/tele_notify.sh "❌ <b>CẢNH BÁO:</b> Quá trình chạy máy chủ Deploy bị lỗi! Vui lòng xem log Cloudflare."
