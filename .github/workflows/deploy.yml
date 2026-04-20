@@ -83,7 +83,8 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: d1 migrations apply chopper-news-db --remote --auto-confirm
+          # Môi trường CI/CD không có terminal tương tác nên Wrangler v3 tự động bỏ qua bước (y/N)
+          command: d1 migrations apply chopper-news-db --remote
 
       - name: Notify Telegram (Migration)
         if: steps.apply_db.conclusion == 'success'
