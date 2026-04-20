@@ -118,6 +118,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Deploy to Cloudflare Workers
+        id: wrangler_deploy
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -127,15 +128,15 @@ jobs:
 
       - name: Auto-Set Telegram Webhook
         if: success()
-        env:
-          WORKER_URL: ${{ secrets.WORKER_URL }}
         run: |
-          if [ -n "$WORKER_URL" ]; then
-            WEBHOOK_TARGET="${WORKER_URL}/webhook"
+          # Lấy URL trực tiếp từ kết quả bước Deploy phía trên
+          WEBHOOK_TARGET="${{ steps.wrangler_deploy.outputs.deployment-url }}/webhook"
+          
+          if [ -n "${{ steps.wrangler_deploy.outputs.deployment-url }}" ]; then
             RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook?url=${WEBHOOK_TARGET}")
-            bash scripts/tele_notify.sh "🔗 <b>Đã thiết lập Webhook:</b> <code>$WEBHOOK_TARGET</code>%0A🔹 <b>Telegram báo:</b> <i>$RESPONSE</i>"
+            bash scripts/tele_notify.sh "🔗 <b>Tự động nối Webhook:</b> <code>$WEBHOOK_TARGET</code>%0A🔹 <b>Telegram báo:</b> <i>$RESPONSE</i>"
           else
-            bash scripts/tele_notify.sh "⚠️ <b>Bỏ qua Auto-Webhook:</b> Bạn hãy thêm biến <code>WORKER_URL</code> vào Github Secrets để hệ thống tự cấp thẻ nhé!"
+            bash scripts/tele_notify.sh "⚠️ <b>Lỗi:</b> Không lấy được URL từ Cloudflare để tự động Set Webhook."
           fi
 
       - name: Notify Telegram (Done)
