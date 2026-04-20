@@ -17,6 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     name: Build & Deploy
     env:
+      # Bắt buộc các action chạy môi trường Node 24 thay cho 20 (Ngừa lỗi Deprecated)
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+      
       # Inject secret environment variables cho toàn bộ flow Workflow
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
@@ -30,7 +33,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
 
       - name: Notify Telegram (Start)
