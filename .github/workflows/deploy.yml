@@ -129,15 +129,24 @@ jobs:
       - name: Auto-Set Telegram Webhook
         if: success()
         run: |
-          # Lấy URL trực tiếp từ kết quả bước Deploy phía trên
+          # 1. Nối dây Webhook
           WEBHOOK_TARGET="${{ steps.wrangler_deploy.outputs.deployment-url }}/webhook"
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook?url=${WEBHOOK_TARGET}"
           
-          if [ -n "${{ steps.wrangler_deploy.outputs.deployment-url }}" ]; then
-            RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook?url=${WEBHOOK_TARGET}")
-            bash scripts/tele_notify.sh "🔗 <b>Tự động nối Webhook:</b> <code>$WEBHOOK_TARGET</code>%0A🔹 <b>Telegram báo:</b> <i>$RESPONSE</i>"
-          else
-            bash scripts/tele_notify.sh "⚠️ <b>Lỗi:</b> Không lấy được URL từ Cloudflare để tự động Set Webhook."
-          fi
+          # 2. Đăng ký Menu lệnh (/) hiển thị trên Telegram UI
+          COMMANDS='{
+            "commands": [
+              {"command": "start", "description": "🏁 Bắt đầu & Hướng dẫn"},
+              {"command": "provider", "description": "⚙️ Thiết lập AI Model"},
+              {"command": "history", "description": "🕒 Xem lịch sử tóm tắt"},
+              {"command": "help", "description": "📖 Trợ giúp"}
+            ]
+          }'
+          RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setMyCommands" \
+            -H "Content-Type: application/json" \
+            -d "$COMMANDS")
+            
+          bash scripts/tele_notify.sh "🔗 <b>Kết nối thành công!</b>%0A🔹 <b>Webhook:</b> <code>$WEBHOOK_TARGET</code>%0A🔹 <b>Menu Lệnh:</b> <i>$RESPONSE</i>"
 
       - name: Notify Telegram (Done)
         if: success()
