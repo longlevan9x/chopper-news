@@ -38,7 +38,18 @@ jobs:
 
       - name: Notify Telegram (Start)
         if: always()
-        run: bash scripts/tele_notify.sh "🚀 <b>[GitHub Actions]</b> Bắt đầu chạy pipeline Deploy Chopper-News..."
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message || 'Triển khai thủ công' }}
+          ACTOR: ${{ github.actor }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          MESSAGE="🚀 <b>[Khởi chạy Deploy] Chopper-News</b>
+          👤 <b>Người đẩy:</b> $ACTOR
+          📝 <b>Commit:</b> <i>$COMMIT_MSG</i>
+          🔀 <b>Nhánh:</b> $BRANCH
+          ⏳ <i>Đang đóng gói Server nội bộ...</i>"
+          
+          bash scripts/tele_notify.sh "$MESSAGE"
 
       - name: Install dependencies
         run: npm ci

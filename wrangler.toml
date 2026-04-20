@@ -10,7 +10,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "chopper-news-db"
-database_id = "<sẽ_thay_thế_sau_khi_tạo_db>"
+database_id = "8a7396f5-6e65-46e7-96c6-61b3b3d9e842"
 migrations_dir = "migrations"
 
 [ai]

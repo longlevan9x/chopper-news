@@ -12,7 +12,7 @@ MESSAGE="$1"
 # Gọi API Telegram
 curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
     -d "chat_id=${TELEGRAM_ADMIN_CHAT_ID}" \
-    -d "text=${MESSAGE}" \
-    -d "parse_mode=HTML" > /dev/null
+    -d "parse_mode=HTML" \
+    --data-urlencode "text=${MESSAGE}" > /dev/null
 
 echo "✅ Đã push Notify tới Telegram."
