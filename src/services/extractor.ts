@@ -1,6 +1,6 @@
-import { extract } from '@extractus/article-extractor';
 import { truncateForAI } from '../utils/text.js';
 import { logger } from '../utils/logger.js';
+import { fetchContent as fetchJina } from './jina.js';
 
 export interface ExtractResult {
   title: string | null;
@@ -9,27 +9,7 @@ export interface ExtractResult {
 }
 
 /**
- * Thử trích xuất bằng @extractus/article-extractor (Lớp 1)
- */
-async function extractWithLibrary(url: string): Promise<ExtractResult> {
-  const article = await extract(url);
-  
-  if (!article || !article.content || article.content.trim().length < 50) {
-    throw new Error('Thư viện không tìm thấy đủ nội dung hợp lệ.');
-  }
-
-  // Strip HTML tags
-  const textContent = article.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-  
-  return {
-    title: article.title || null,
-    text: textContent,
-    original_length: textContent.length
-  };
-}
-
-/**
- * Trích xuất dự phòng qua Cloudflare HTMLRewriter (Lớp 2)
+ * Lớp 1: Trích xuất siêu nhẹ qua Cloudflare HTMLRewriter (0 cost, native edge)
  */
 async function extractWithHTMLRewriter(url: string): Promise<ExtractResult> {
   const response = await fetch(url, {
@@ -39,11 +19,10 @@ async function extractWithHTMLRewriter(url: string): Promise<ExtractResult> {
   });
 
   if (!response.ok) {
-    throw new Error(`HTTP Error ${response.status}`);
+    throw new Error(`HTTP Error Status: ${response.status}`);
   }
 
   let title = '';
-  // Thu gom text từ thẻ p và article
   let articleContent = '';
   
   const rewriter = new HTMLRewriter()
@@ -52,21 +31,21 @@ async function extractWithHTMLRewriter(url: string): Promise<ExtractResult> {
         title += text.text;
       }
     })
-    // Nhắm mục tiêu rộng để cố gom text, nhưng ưu tiên các thẻ mang thông tin 
     .on('article p, main p, div.content p, div.post p', {
       text(text) {
         articleContent += text.text + ' ';
       }
     });
 
-  // Chạy transform và consume body
+  // Hứng và xử lý theo luồng Stream ngay lập tức
   await rewriter.transform(response).arrayBuffer();
   
   title = title.replace(/\s+/g, ' ').trim();
   articleContent = articleContent.replace(/\s+/g, ' ').trim();
 
-  if (articleContent.length < 100) {
-    throw new Error('HTMLRewriter không tìm thấy text content hợp lệ.');
+  // Validate chất lượng
+  if (articleContent.length < 150) {
+    throw new Error('Nội dung thu được quá thô hoặc lấy nhầm layout trang.');
   }
 
   return {
@@ -77,33 +56,51 @@ async function extractWithHTMLRewriter(url: string): Promise<ExtractResult> {
 }
 
 /**
- * Fetch and extract article content from URL.
- * Ưu tiên dùng library, dự phòng bằng HTMLRewriter.
+ * Lớp 2: Trích xuất dứt điểm bằng 3rd Party (Jina Reader API)
+ */
+async function extractWithJinaFallback(url: string): Promise<ExtractResult> {
+  const rawMarkdown = await fetchJina(url);
+  
+  // Tự động phân tách tiêu đề từ phần tử h1 của thẻ Markdown
+  const lines = rawMarkdown.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const title = lines.length > 0 ? lines[0].replace(/^#+\s*/, '') : null;
+
+  return {
+    title,
+    text: rawMarkdown,
+    original_length: rawMarkdown.length
+  };
+}
+
+/**
+ * Đầu não điều phối: Thống nhất Lớp 1 & Lớp 2.
  */
 export async function fetchContent(url: string): Promise<ExtractResult> {
-  logger.info(`Extracting content from: ${url}`);
+  logger.info(`Đang trích xuất nội dung từ: ${url}`);
 
   try {
-    const result = await extractWithLibrary(url);
-    logger.info(`[Lớp 1] Library: Extracted ${result.original_length} chars`);
+    // Ưu tiên sài hàng nhà làm (0 Đồng, Tốc độ C++)
+    const result = await extractWithHTMLRewriter(url);
+    logger.info(`[Lớp 1] HTMLRewriter: Trích xuất thành thạo ${result.original_length} kí tự`);
     
-    // Truncate nội dung để gửi cho AI
+    // Luôn Trim bớt trước khi ăn mòn tiền xài LLM API
     result.text = truncateForAI(result.text, 15_000);
     return result;
   } catch (err1) {
     const errorMsg = err1 instanceof Error ? err1.message : String(err1);
-    logger.warn(`[Lớp 1] Thư viện extract lỗi: ${errorMsg}. Đang fallback sang HTMLRewriter...`);
+    logger.warn(`[Lớp 1] Bị tịt (${errorMsg}). Tự động Fallback sang Lớp 2 Jina...`);
     
     try {
-      const result = await extractWithHTMLRewriter(url);
-      logger.info(`[Lớp 2] HTMLRewriter: Extracted ${result.original_length} chars`);
+      // Khi lớp 1 sập (Thường do Single Page App hoặc web block Bot), ta móc Jina vào nhổ
+      const result = await extractWithJinaFallback(url);
+      logger.info(`[Lớp 2] Jina Reader: Thu về ${result.original_length} kí tự (Title: ${result.title})`);
       
       result.text = truncateForAI(result.text, 15_000);
       return result;
     } catch (err2) {
       const errorMsg2 = err2 instanceof Error ? err2.message : String(err2);
-      logger.error(`[Lớp 2] HTMLRewriter lỗi: ${errorMsg2}`);
-      throw new Error('Không thể đọc nội dung trang web bằng bất kỳ phương pháp nào.');
+      logger.error(`[Lớp 2] Jina Reader cũng đổ gục: ${errorMsg2}`);
+      throw new Error('Rất tiếc. Cả Hệ thống và AI đều không tiếp cận được nội dung web này!');
     }
   }
 }
