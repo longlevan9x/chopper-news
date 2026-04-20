@@ -86,6 +86,75 @@ export async function getRecentSummaries(
 }
 
 /**
+ * Tìm bản tóm tắt đã tồn tại dựa trên URL và User
+ */
+export async function getExistingSummary(
+  db: D1Database,
+  chatId: number,
+  url: string
+): Promise<SummaryRecord | null> {
+  const ddb = drizzle(db);
+  const rows = await ddb.select()
+    .from(summaries)
+    .where(
+      and(
+        eq(summaries.chatId, chatId),
+        eq(summaries.url, url),
+        eq(summaries.status, 'success')
+      )
+    )
+    .limit(1);
+
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  return {
+    id: r.id,
+    chat_id: r.chatId,
+    user_name: r.userName,
+    url: r.url,
+    domain: r.domain,
+    title: r.title,
+    status: r.status as 'success' | 'error',
+    error_message: r.errorMessage,
+    original_length: r.originalLength,
+    content_snippet: r.contentSnippet,
+    summary: r.summary,
+    created_at: r.createdAt
+  };
+}
+
+/**
+ * Lấy Summary theo ID
+ */
+export async function getSummaryById(
+  db: D1Database,
+  id: number
+): Promise<SummaryRecord | null> {
+  const ddb = drizzle(db);
+  const rows = await ddb.select()
+    .from(summaries)
+    .where(eq(summaries.id, id))
+    .limit(1);
+
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  return {
+    id: r.id,
+    chat_id: r.chatId,
+    user_name: r.userName,
+    url: r.url,
+    domain: r.domain,
+    title: r.title,
+    status: r.status as 'success' | 'error',
+    error_message: r.errorMessage,
+    original_length: r.originalLength,
+    content_snippet: r.contentSnippet,
+    summary: r.summary,
+    created_at: r.createdAt
+  };
+}
+
+/**
  * Lấy AI Provider mà người dùng lựa chọn
  */
 export async function getPreferredProvider(

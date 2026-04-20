@@ -9,6 +9,7 @@ import { getRecentSummaries, getPreferredProvider, getUserStats } from '../db/re
 import { escapeHtml } from '../utils/text.js';
 import { getDiscoveryModels } from '../services/models.js';
 import { generateMagicToken } from '../services/auth.js';
+import { processUrl } from '../services/processor.js';
 
 const WELCOME_MESSAGE = `🤖 <b>CHÀO MỪNG BẠN ĐẾN VỚI CHOPPER NEWS BOT!</b>
 
@@ -217,4 +218,22 @@ ${onlineProviders.length > 0 ? onlineProviders.join(', ') : '⚠️ <i>Đang s�
   } catch (error: any) {
     await ctx.reply(`❌ Lỗi truy vấn trạng thái: ${error.message}`);
   }
+}
+
+/**
+ * Ép buộc tóm tắt lại một URL cụ thể
+ */
+export async function handleReccheckCommand(ctx: Context, env: AppEnv): Promise<void> {
+  const text = (ctx.message as any)?.text || '';
+  const urlMatches = text.match(/https?:\/\/[^\s]+/);
+  
+  if (!urlMatches) {
+    await ctx.reply('📖 <b>Cách dùng lệnh /reccheck:</b>\nNhắn theo cú pháp: <code>/reccheck https://link-cua-ban.com</code>\nBot sẽ bỏ qua bộ nhớ đệm và tóm tắt lại bài viết này cho bạn!', {
+      parse_mode: 'HTML'
+    });
+    return;
+  }
+
+  const targetUrl = urlMatches[0];
+  await processUrl(ctx, env, targetUrl, true);
 }

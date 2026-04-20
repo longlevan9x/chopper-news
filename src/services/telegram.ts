@@ -14,20 +14,24 @@ import { logger } from '../utils/logger.js';
 export async function replyWithChunks(
   ctx: Context,
   text: string,
-  parseMode: 'HTML' | 'MarkdownV2' = 'HTML'
+  parseMode: 'HTML' | 'MarkdownV2' = 'HTML',
+  extra?: any
 ): Promise<void> {
   const chunks = splitMessage(text, APP_CONFIG.maxTelegramMessageLength);
 
   for (let i = 0; i < chunks.length; i++) {
     try {
-      await ctx.reply(chunks[i], {
+      const isLastChunk = i === chunks.length - 1;
+      const options = {
         parse_mode: parseMode,
-        link_preview_options: { is_disabled: true } // format mới của link preview trong lib telegram
-      });
+        link_preview_options: { is_disabled: true },
+        ...(isLastChunk ? extra : {}) // Chỉ gắn bàn phím/extra vào chunk cuối cùng
+      };
+
+      await ctx.reply(chunks[i], options);
     } catch (err: any) {
       logger.error(`Telegram sendMessage failed (chunk ${i + 1}/${chunks.length})`, err.message);
 
-      // Nếu lỗi do HTML parse sai, thử lại dưới dạng Text thuần (bỏ parseMode)
       if (parseMode === 'HTML' && err.message?.includes('parse')) {
         logger.warn('Retrying chunk without parse_mode...');
         await ctx.reply(chunks[i], {
