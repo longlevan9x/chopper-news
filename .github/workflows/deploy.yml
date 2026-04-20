@@ -138,6 +138,7 @@ jobs:
             "commands": [
               {"command": "start", "description": "🏁 Bắt đầu & Hướng dẫn"},
               {"command": "models", "description": "🔍 Xem danh sách AI Models"},
+              {"command": "status", "description": "📊 Tình trạng & Thống kê"},
               {"command": "admin", "description": "🔑 Cài đặt cá nhân (Magic Link)"},
               {"command": "provider", "description": "⚙️ Thiết lập AI Model"},
               {"command": "history", "description": "🕒 Xem lịch sử tóm tắt"},

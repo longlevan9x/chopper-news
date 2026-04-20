@@ -3,8 +3,8 @@
  */
 
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, desc } from 'drizzle-orm';
-import { summaries, userPreferences } from './schema.js';
+import { eq, desc, sql, and } from 'drizzle-orm';
+import { summaries, userPreferences, appSecrets } from './schema.js';
 
 export interface SummaryRecord {
   id?: number;
@@ -125,4 +125,44 @@ export async function setPreferredProvider(
         updatedAt: new Date().toISOString()
       }
     });
+}
+
+/**
+ * Thống kê dữ liệu sử dụng của người dùng
+ */
+export async function getUserStats(db: D1Database, chatId: number) {
+  const ddb = drizzle(db);
+  
+  // Tổng số lần tóm tắt thành công (Của user này)
+  const userTotalRes = await ddb.select({ count: sql<number>`count(*)` })
+    .from(summaries)
+    .where(and(eq(summaries.chatId, chatId), eq(summaries.status, 'success')));
+  
+  // Tổng số lần tóm tắt của toàn bộ hệ thống
+  const globalTotalRes = await ddb.select({ count: sql<number>`count(*)` })
+    .from(summaries)
+    .where(eq(summaries.status, 'success'));
+
+  // Số lần tóm tắt trong ngày hôm nay của user
+  const todayRes = await ddb.select({ count: sql<number>`count(*)` })
+    .from(summaries)
+    .where(
+      and(
+        eq(summaries.chatId, chatId), 
+        eq(summaries.status, 'success'),
+        sql`date(${summaries.createdAt}) = date('now', 'localtime')`
+      )
+    );
+
+  // Kiểm tra xem user có cài Key cá nhân chưa
+  const personalKeys = await ddb.select({ count: sql<number>`count(*)` })
+    .from(appSecrets)
+    .where(eq(appSecrets.chatId, chatId));
+
+  return {
+    userTotal: userTotalRes[0]?.count || 0,
+    globalTotal: globalTotalRes[0]?.count || 0,
+    today: todayRes[0]?.count || 0,
+    hasPersonalKeys: (personalKeys[0]?.count || 0) > 0
+  };
 }

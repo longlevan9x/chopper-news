@@ -11,7 +11,8 @@ import {
   handleHistoryCommand,
   handleProviderCommand,
   handleModelsCommand,
-  handleAdminCommand
+  handleAdminCommand,
+  handleStatusCommand
 } from './commands.js';
 import { isValidUrl, extractUrl } from '../utils/url.js';
 import { replyWithChunks, sendTypingAction } from '../services/telegram.js';
@@ -108,9 +109,8 @@ function setupBot(bot: Telegraf, env: AppEnv, baseUrl?: string) {
   bot.command('history', async (ctx) => await handleHistoryCommand(ctx, env));
   bot.command('provider', async (ctx) => await handleProviderCommand(ctx, env));
   bot.command('models', async (ctx) => await handleModelsCommand(ctx, env));
-  
-  // Lệnh Admin sinh Magic Link
   bot.command('admin', async (ctx) => await handleAdminCommand(ctx, env, baseUrl));
+  bot.command('status', async (ctx) => await handleStatusCommand(ctx, env));
 
   // Handler khi click chọn AI Provider trên menu
   bot.action(/set_provider_(groq|xai|cloudflare)/, async (ctx) => {
