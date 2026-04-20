@@ -10,7 +10,9 @@ import { APP_CONFIG, AppEnv, SupportedProviders } from '../config.js';
 import { logger } from '../utils/logger.js';
 import { getAppSecret } from './secrets.js';
 
-const SYSTEM_PROMPT = `Bạn là một trợ lý tóm tắt tin tức chuyên nghiệp và chuyên sâu. Nhiệm vụ của bạn là đọc nội dung bài viết và tóm tắt thành một bản tin chi tiết, đầy đủ thông tin nhưng vẫn dễ hiểu bằng tiếng Việt.
+const SYSTEM_PROMPT = `Bạn là một trợ lý tóm tắt tin tức chuyên nghiệp và chuyên sâu. Nhiệm vụ của bạn là đọc nội dung bài viết và tóm tắt thành một bản tin chi tiết, đầy đủ thông tin nhưng vẫn dễ hiểu.
+
+LUÔN TRẢ VỀ KẾT QUẢ BẰNG TIẾNG VIỆT, bất kể ngôn ngữ của bài viết gốc là gì.
 
 Quy tắc định dạng (rất quan trọng — output sẽ được gửi qua Telegram với HTML parse_mode):
 - Khởi đầu bằng dòng chứa tiêu đề bao quát nội dung bài viết, in đậm: <b>[TIÊU ĐỀ TÓM TẮT CHI TIẾT]</b>
@@ -52,6 +54,7 @@ export async function summarizeWithFallback(
           model: groq(APP_CONFIG.groqModel),
           system: SYSTEM_PROMPT,
           prompt,
+          maxOutputTokens: 10000,
         });
         resultText = text;
 
@@ -64,6 +67,7 @@ export async function summarizeWithFallback(
           model: grok(APP_CONFIG.xaiModel),
           system: SYSTEM_PROMPT,
           prompt,
+          maxOutputTokens: 10000,
         });
         resultText = text;
 
@@ -77,6 +81,7 @@ export async function summarizeWithFallback(
           model: workersai(APP_CONFIG.cfModel),
           system: SYSTEM_PROMPT,
           prompt,
+          maxOutputTokens: 10000,
         });
         resultText = text;
       }
