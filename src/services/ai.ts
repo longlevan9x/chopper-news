@@ -9,6 +9,7 @@ import { createWorkersAI } from 'workers-ai-provider';
 import { APP_CONFIG, AppEnv, SupportedProviders } from '../config.js';
 import { logger } from '../utils/logger.js';
 import { getAppSecret } from './secrets.js';
+import { getUserPreferences } from '../db/repository.js';
 
 const SYSTEM_PROMPT = `Bạn là một trợ lý tóm tắt tin tức chuyên nghiệp và chuyên sâu. Nhiệm vụ của bạn là đọc nội dung bài viết và tóm tắt thành một bản tin chi tiết, đầy đủ thông tin nhưng vẫn dễ hiểu.
 
@@ -29,6 +30,9 @@ export async function summarizeWithFallback(
   sourceUrl: string,
   chatId: number = 0
 ): Promise<{ text: string; providerUsed: SupportedProviders }> {
+  // 0. Truy xuất Preferences của User
+  const prefs = chatId !== 0 ? await getUserPreferences(env.DB, chatId) : null;
+
   // Sắp xếp thứ tự gọi (Preferred luôn đứng đầu)
   const allProviders: SupportedProviders[] = ['groq', 'xai', 'cloudflare'];
   const queue = [
@@ -49,9 +53,13 @@ export async function summarizeWithFallback(
         const apiKey = await getAppSecret('GROQ_API_KEY', env, chatId);
         if (!apiKey) throw new Error('Groq API Key is missing');
         
+        // Ưu tiên Model của User
+        const modelName = prefs?.preferredGroqModel || APP_CONFIG.groqModel;
+        logger.info(`[Groq] Using model: ${modelName}`);
+
         const groq = createGroq({ apiKey });
         const { text } = await generateText({
-          model: groq(APP_CONFIG.groqModel),
+          model: groq(modelName),
           system: SYSTEM_PROMPT,
           prompt,
           maxOutputTokens: 10000,
@@ -62,9 +70,12 @@ export async function summarizeWithFallback(
         const apiKey = await getAppSecret('XAI_API_KEY', env, chatId);
         if (!apiKey) throw new Error('xAI API Key is missing');
 
+        const modelName = prefs?.preferredXaiModel || APP_CONFIG.xaiModel;
+        logger.info(`[xAI] Using model: ${modelName}`);
+
         const grok = createXai({ apiKey });
         const { text } = await generateText({
-          model: grok(APP_CONFIG.xaiModel),
+          model: grok(modelName),
           system: SYSTEM_PROMPT,
           prompt,
           maxOutputTokens: 10000,
@@ -72,13 +83,18 @@ export async function summarizeWithFallback(
         resultText = text;
 
       } else if (provider === 'cloudflare') {
-        // Cloudflare Workers AI sử dụng binding
-        if (!env.AI) {
-          throw new Error('Cloudflare AI Binding is missing');
-        }
-        const workersai = createWorkersAI({ binding: env.AI });
+        const token = await getAppSecret('CLOUDFLARE_API_TOKEN', env, chatId);
+        const accountId = await getAppSecret('CLOUDFLARE_ACCOUNT_ID', env, chatId);
+        
+        if (!token || !accountId) throw new Error('Cloudflare AI configuration is missing');
+
+        const modelName = (prefs?.preferredCfModel || APP_CONFIG.cfModel) as any;
+        logger.info(`[Cloudflare] Using model: ${modelName}`);
+
+        // Cloudflare AI SDK sử dụng apiKey thay vì accessToken
+        const workersai = createWorkersAI({ accountId, apiKey: token });
         const { text } = await generateText({
-          model: workersai(APP_CONFIG.cfModel),
+          model: workersai(modelName),
           system: SYSTEM_PROMPT,
           prompt,
           maxOutputTokens: 10000,

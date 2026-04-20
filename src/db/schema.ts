@@ -35,6 +35,12 @@ export const summaries = sqliteTable('summaries', {
 export const userPreferences = sqliteTable('user_preferences', {
   chatId: integer('chat_id').primaryKey(),
   preferredProvider: text('preferred_provider').default('groq'),
+  
+  // Model cấu hình riêng cho từng Provider
+  preferredGroqModel: text('preferred_groq_model'),
+  preferredXaiModel: text('preferred_xai_model'),
+  preferredCfModel: text('preferred_cf_model'),
+  
   updatedAt: text('updated_at').default(sql`(datetime('now', 'localtime'))`),
 });
 /**

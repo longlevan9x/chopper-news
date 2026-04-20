@@ -137,7 +137,8 @@ jobs:
           COMMANDS='{
             "commands": [
               {"command": "start", "description": "🏁 Bắt đầu & Hướng dẫn"},
-              {"command": "models", "description": "🔍 Xem danh sách AI Models"},
+              {"command": "models", "description": "🔍 Xem danh sách AI đang online"},
+              {"command": "model", "description": "⚙️ Chọn Model AI (Llama, Grok...)"},
               {"command": "status", "description": "📊 Tình trạng & Thống kê"},
               {"command": "reccheck", "description": "🔄 Tóm tắt lại (Theo link)"},
               {"command": "admin", "description": "🔑 Cài đặt cá nhân (Magic Link)"},

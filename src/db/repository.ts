@@ -174,6 +174,22 @@ export async function getPreferredProvider(
 }
 
 /**
+ * Lấy toàn bộ cấu hình của User
+ */
+export async function getUserPreferences(
+  db: D1Database,
+  chatId: number
+) {
+  const ddb = drizzle(db);
+  const result = await ddb.select()
+    .from(userPreferences)
+    .where(eq(userPreferences.chatId, chatId))
+    .limit(1);
+
+  return result[0] || null;
+}
+
+/**
  * Cập nhật AI Provider ưu tiên của người dùng
  */
 export async function setPreferredProvider(
@@ -193,6 +209,36 @@ export async function setPreferredProvider(
         preferredProvider: provider,
         updatedAt: new Date().toISOString()
       }
+    });
+}
+
+/**
+ * Cập nhật Model cho một Provider cụ thể
+ */
+export async function setUserModelPreference(
+  db: D1Database,
+  chatId: number,
+  provider: 'groq' | 'xai' | 'cloudflare',
+  modelId: string
+): Promise<void> {
+  const ddb = drizzle(db);
+  
+  const updateData: any = {
+    updatedAt: new Date().toISOString()
+  };
+
+  if (provider === 'groq') updateData.preferredGroqModel = modelId;
+  else if (provider === 'xai') updateData.preferredXaiModel = modelId;
+  else if (provider === 'cloudflare') updateData.preferredCfModel = modelId;
+
+  await ddb.insert(userPreferences)
+    .values({
+      chatId,
+      ...updateData
+    })
+    .onConflictDoUpdate({
+      target: userPreferences.chatId,
+      set: updateData
     });
 }
 
