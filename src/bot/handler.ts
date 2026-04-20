@@ -9,7 +9,8 @@ import {
   handleStartCommand, 
   handleHelpCommand, 
   handleHistoryCommand,
-  handleProviderCommand 
+  handleProviderCommand,
+  handleModelsCommand
 } from './commands.js';
 import { isValidUrl, extractUrl } from '../utils/url.js';
 import { replyWithChunks, sendTypingAction } from '../services/telegram.js';
@@ -105,6 +106,7 @@ function setupBot(bot: Telegraf, env: AppEnv) {
   bot.help(async (ctx) => await handleHelpCommand(ctx));
   bot.command('history', async (ctx) => await handleHistoryCommand(ctx, env));
   bot.command('provider', async (ctx) => await handleProviderCommand(ctx, env));
+  bot.command('models', async (ctx) => await handleModelsCommand(ctx, env));
 
   // Handler khi click chọn AI Provider trên menu
   bot.action(/set_provider_(groq|xai|cloudflare)/, async (ctx) => {

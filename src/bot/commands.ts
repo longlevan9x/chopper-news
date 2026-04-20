@@ -7,6 +7,7 @@ import { replyWithChunks } from '../services/telegram.js';
 import { AppEnv } from '../config.js';
 import { getRecentSummaries, getPreferredProvider } from '../db/repository.js';
 import { escapeHtml } from '../utils/text.js';
+import { getDiscoveryModels } from '../services/models.js';
 
 const WELCOME_MESSAGE = `🤖 <b>CHÀO MỪNG BẠN ĐẾN VỚI CHOPPER NEWS BOT!</b>
 
@@ -16,6 +17,7 @@ Tôi là Trợ lý AI Đọc Báo Tốc Độ Cao. Tôi sẽ giúp bạn "thổi
 Bạn chỉ cần <b>Copy 1 đường Link (URL)</b> bài viết dán thẳng vào ô chat này. Tôi sẽ tự động đi vào trang web, đọc và tóm gọn lại thành 3-5 ý chính cho bạn!
 
 💡 <b>DANH SÁCH LỆNH HỖ TRỢ:</b>
+🔹 /models - 🔍 Xem danh sách AI đang online
 🔹 /provider - Mở bảng chọn "Trí tuệ nhân tạo" (Đổi AI)
 🔹 /history - Xem lại 10 lịch sử bài tóm tắt gần nhất
 🔹 /help - Trợ giúp hệ thống
@@ -87,4 +89,35 @@ export async function handleProviderCommand(ctx: Context, env: AppEnv): Promise<
     parse_mode: 'HTML',
     ...kb
   });
+}
+
+/**
+ * Hiển thị danh sách Models lấy từ API (Dynamic)
+ */
+export async function handleModelsCommand(ctx: Context, env: AppEnv): Promise<void> {
+  await ctx.reply('🔍 Đang kiểm tra danh sách AI đang online...');
+  
+  try {
+    const models = await getDiscoveryModels(env);
+    
+    let msg = `📟 <b>DANH SÁCH AI ĐỘNG (REAL-TIME)</b>\n\n`;
+    
+    msg += `🚀 <b>Groq Cloud:</b>\n`;
+    models.groq.slice(0, 5).forEach(m => msg += `• <code>${m.id}</code>\n`);
+    
+    msg += `\n🐦 <b>xAI (Grok):</b>\n`;
+    models.xai.forEach(m => msg += `• <code>${m.id}</code>\n`);
+    
+    msg += `\n☁️ <b>Cloudflare AI:</b>\n`;
+    models.cloudflare.slice(0, 5).forEach(m => msg += `• <code>${m.id}</code>\n`);
+
+    msg += `\n♊ <b>Gemini (Fallback):</b>\n`;
+    models.google.forEach(m => msg += `• <code>${m.id}</code>\n`);
+
+    msg += `\n<i>Gợi ý: Nếu danh sách trên hiển thị ít model, hệ thống đang chạy ở chế độ Fallback Local để đảm bảo ổn định.</i>`;
+    
+    await replyWithChunks(ctx, msg);
+  } catch (error: any) {
+    await replyWithChunks(ctx, `❌ Lỗi lấy danh sách model: ${error.message}`);
+  }
 }

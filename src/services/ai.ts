@@ -8,15 +8,16 @@ import { createXai } from '@ai-sdk/xai';
 import { createWorkersAI } from 'workers-ai-provider';
 import { APP_CONFIG, AppEnv, SupportedProviders } from '../config.js';
 import { logger } from '../utils/logger.js';
+import { getAppSecret } from './secrets.js';
 
-const SYSTEM_PROMPT = `Bạn là một trợ lý tóm tắt tin tức chuyên nghiệp. Nhiệm vụ của bạn là đọc nội dung bài viết và tóm tắt thành bản tin ngắn gọn, dễ hiểu bằng tiếng Việt.
+const SYSTEM_PROMPT = `Bạn là một trợ lý tóm tắt tin tức chuyên nghiệp và chuyên sâu. Nhiệm vụ của bạn là đọc nội dung bài viết và tóm tắt thành một bản tin chi tiết, đầy đủ thông tin nhưng vẫn dễ hiểu bằng tiếng Việt.
 
 Quy tắc định dạng (rất quan trọng — output sẽ được gửi qua Telegram với HTML parse_mode):
-- Khởi đầu bằng dòng chứa tiêu đề cực ngắn phản ánh chủ đề chính của bản tóm tắt, in đậm: <b>[Tiêu đề ngắn]</b>
+- Khởi đầu bằng dòng chứa tiêu đề bao quát nội dung bài viết, in đậm: <b>[TIÊU ĐỀ TÓM TẮT CHI TIẾT]</b>
 - Dòng trống
-- Tóm tắt 3-5 ý chính, mỗi ý bắt đầu bằng ký tự "• "
-- Mỗi ý chính nên ngắn gọn, tối đa 2-3 câu
-- Tuyệt đối KHÔNG ĐƯA THÊM tiêu đề báo vào đầu (trừ cái "tiêu đề ngắn" bên trên mình nói) nữa. Cuối cùng KHÔNG cần dòng Đọc bài gốc.
+- Tóm tắt từ 5-8 ý chính quan trọng nhất. Mỗi ý bắt đầu bằng ký tự "• ".
+- Với mỗi ý chính, hãy cung cấp thông tin chi tiết, số liệu (nếu có) và phân tích các khía cạnh liên quan thay vì chỉ viết 1 câu ngắn gọn. Mỗi đoạn nên có độ dài vừa đủ để người đọc nắm bắt được bản chất vấn đề.
+- Tuyệt đối KHÔNG ĐƯA THÊM tiêu đề báo vào đầu. Cuối cùng KHÔNG cần dòng "Đọc bài gốc".
 - KHÔNG dùng Markdown (**, __, ##, etc.) — chỉ dùng HTML tags. Chỉ dùng các thẻ được phép: <b>, <i>, <code>, <pre>, <a>`;
 
 export async function summarizeWithFallback(
@@ -42,7 +43,10 @@ export async function summarizeWithFallback(
       let resultText = '';
 
       if (provider === 'groq') {
-        const groq = createGroq({ apiKey: env.GROQ_API_KEY });
+        const apiKey = await getAppSecret('GROQ_API_KEY', env);
+        if (!apiKey) throw new Error('Groq API Key is missing');
+        
+        const groq = createGroq({ apiKey });
         const { text } = await generateText({
           model: groq(APP_CONFIG.groqModel),
           system: SYSTEM_PROMPT,
@@ -51,7 +55,10 @@ export async function summarizeWithFallback(
         resultText = text;
 
       } else if (provider === 'xai') {
-        const grok = createXai({ apiKey: env.XAI_API_KEY });
+        const apiKey = await getAppSecret('XAI_API_KEY', env);
+        if (!apiKey) throw new Error('xAI API Key is missing');
+
+        const grok = createXai({ apiKey });
         const { text } = await generateText({
           model: grok(APP_CONFIG.xaiModel),
           system: SYSTEM_PROMPT,

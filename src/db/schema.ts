@@ -37,3 +37,12 @@ export const userPreferences = sqliteTable('user_preferences', {
   preferredProvider: text('preferred_provider').default('groq'),
   updatedAt: text('updated_at').default(sql`(datetime('now', 'localtime'))`),
 });
+/**
+ * Bảng lưu trữ cấu hình bí mật (API Keys) của hệ thống
+ */
+export const appSecrets = sqliteTable('app_secrets', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  keyName: text('key_name').notNull().unique(), // Ví dụ: 'GROQ_API_KEY'
+  keyValue: text('key_value').notNull(),
+  updatedAt: text('updated_at').default(sql`(datetime('now', 'localtime'))`),
+});

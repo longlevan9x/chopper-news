@@ -137,6 +137,7 @@ jobs:
           COMMANDS='{
             "commands": [
               {"command": "start", "description": "🏁 Bắt đầu & Hướng dẫn"},
+              {"command": "models", "description": "🔍 Xem danh sách AI Models"},
               {"command": "provider", "description": "⚙️ Thiết lập AI Model"},
               {"command": "history", "description": "🕒 Xem lịch sử tóm tắt"},
               {"command": "help", "description": "📖 Trợ giúp"}

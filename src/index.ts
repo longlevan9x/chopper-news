@@ -4,6 +4,7 @@
 
 import { Hono } from 'hono';
 import { handleWebhook } from './bot/handler.js';
+import { renderAdminDashboard, handleAdminSave } from './bot/admin.js';
 import { logger } from './utils/logger.js';
 import { AppEnv } from './config.js';
 
@@ -36,6 +37,12 @@ app.post('/webhook', async (c) => {
     return c.json({ ok: false, error: 'Invalid request' }, 400);
   }
 });
+
+/**
+ * Admin Dashboard Routes
+ */
+app.get('/admin', (c) => c.html(renderAdminDashboard()));
+app.post('/admin/save', (c) => handleAdminSave(c));
 
 /**
  * Set Webhook Helper Endpoint
