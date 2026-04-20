@@ -1,0 +1,128 @@
+/**
+ * D1 Database Repository - Powered by Drizzle ORM
+ */
+
+import { drizzle } from 'drizzle-orm/d1';
+import { eq, desc } from 'drizzle-orm';
+import { summaries, userPreferences } from './schema.js';
+
+export interface SummaryRecord {
+  id?: number;
+  chat_id: number;
+  user_name: string | null;
+  url: string;
+  domain: string | null;
+  title: string | null;
+  status: 'success' | 'error';
+  error_message: string | null;
+  original_length: number | null;
+  content_snippet: string | null;
+  summary: string | null;
+  created_at?: string | null;
+}
+
+/**
+ * Lưu kết quả tóm tắt.
+ * Nếu đã trùng chat_id và url thì update nọi dung mới.
+ */
+export async function saveSummaryLog(
+  db: D1Database,
+  data: SummaryRecord
+): Promise<void> {
+  const ddb = drizzle(db);
+  await ddb.insert(summaries).values({
+    chatId: data.chat_id,
+    userName: data.user_name,
+    url: data.url,
+    domain: data.domain,
+    title: data.title,
+    status: data.status,
+    errorMessage: data.error_message,
+    originalLength: data.original_length,
+    contentSnippet: data.content_snippet,
+    summary: data.summary,
+  }).onConflictDoUpdate({
+    target: [summaries.chatId, summaries.url],
+    set: {
+      status: data.status,
+      errorMessage: data.error_message,
+      originalLength: data.original_length,
+      contentSnippet: data.content_snippet,
+      summary: data.summary,
+      createdAt: new Date().toISOString()
+    }
+  });
+}
+
+/**
+ * Lấy lịch sử tóm tắt gần nhất
+ */
+export async function getRecentSummaries(
+  db: D1Database,
+  chatId: number,
+  limitNum: number = 10
+): Promise<SummaryRecord[]> {
+  const ddb = drizzle(db);
+  const rows = await ddb.select()
+    .from(summaries)
+    .where(eq(summaries.chatId, chatId))
+    .orderBy(desc(summaries.createdAt))
+    .limit(limitNum);
+
+  return rows.map(r => ({
+    id: r.id,
+    chat_id: r.chatId,
+    user_name: r.userName,
+    url: r.url,
+    domain: r.domain,
+    title: r.title,
+    status: r.status as 'success' | 'error',
+    error_message: r.errorMessage,
+    original_length: r.originalLength,
+    content_snippet: r.contentSnippet,
+    summary: r.summary,
+    created_at: r.createdAt
+  }));
+}
+
+/**
+ * Lấy AI Provider mà người dùng lựa chọn
+ */
+export async function getPreferredProvider(
+  db: D1Database,
+  chatId: number
+): Promise<'groq' | 'xai' | 'cloudflare'> {
+  const ddb = drizzle(db);
+  const result = await ddb.select({ provider: userPreferences.preferredProvider })
+    .from(userPreferences)
+    .where(eq(userPreferences.chatId, chatId))
+    .limit(1);
+
+  if (result.length > 0 && result[0].provider) {
+    return result[0].provider as 'groq' | 'xai' | 'cloudflare';
+  }
+  return 'groq';
+}
+
+/**
+ * Cập nhật AI Provider ưu tiên của người dùng
+ */
+export async function setPreferredProvider(
+  db: D1Database,
+  chatId: number,
+  provider: 'groq' | 'xai' | 'cloudflare'
+): Promise<void> {
+  const ddb = drizzle(db);
+  await ddb.insert(userPreferences)
+    .values({
+      chatId: chatId,
+      preferredProvider: provider
+    })
+    .onConflictDoUpdate({
+      target: userPreferences.chatId,
+      set: {
+        preferredProvider: provider,
+        updatedAt: new Date().toISOString()
+      }
+    });
+}

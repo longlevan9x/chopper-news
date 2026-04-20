@@ -1,0 +1,17 @@
+name = "chopper-news"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+# Enable Node.js compat for article-extractor
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# Thêm các biến môi trường không nhạy cảm ở đây nếu có
+
+[[d1_databases]]
+binding = "DB"
+database_name = "chopper-news-db"
+database_id = "<sẽ_thay_thế_sau_khi_tạo_db>"
+migrations_dir = "migrations"
+
+[ai]
+binding = "AI"

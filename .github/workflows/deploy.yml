@@ -1,0 +1,96 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      run_migrations:
+        description: 'Chạy Database Migrations trước khi Deploy?'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Build & Deploy
+    env:
+      # Inject secret environment variables cho toàn bộ flow Workflow
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Notify Telegram (Start)
+        if: always()
+        run: bash scripts/tele_notify.sh "🚀 <b>[GitHub Actions]</b> Bắt đầu chạy pipeline Deploy Chopper-News..."
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run build
+
+      - name: Notify Telegram (Build Status)
+        if: success()
+        run: bash scripts/tele_notify.sh "✅ Build TypeScript thành công!"
+
+      - name: Check Migration Configuration
+        id: check_migration
+        run: |
+          if [ -f "migration.json" ]; then
+            CURRENT=$(jq -r '.current' migration.json)
+            PREVIOUS=$(jq -r '.previous' migration.json)
+            if [ "$CURRENT" -gt "$PREVIOUS" ]; then
+              echo "SHOULD_RUN=true" >> $GITHUB_OUTPUT
+            else
+              echo "SHOULD_RUN=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "SHOULD_RUN=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Apply DB Migrations
+        id: apply_db
+        if: steps.check_migration.outputs.SHOULD_RUN == 'true' || github.event.inputs.run_migrations == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply chopper-news-db --remote --auto-confirm
+
+      - name: Notify Telegram (Migration)
+        if: steps.apply_db.conclusion == 'success'
+        run: bash scripts/tele_notify.sh "🗄 Update CSDL cấu trúc (D1 Migrations) thành công!"
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          secrets: |
+            TELEGRAM_BOT_TOKEN
+            GOOGLE_GENERATIVE_AI_API_KEY
+            GROQ_API_KEY
+            XAI_API_KEY
+
+      - name: Notify Telegram (Done)
+        if: success()
+        run: bash scripts/tele_notify.sh "🎉 Hoàn tất đưa Code lên Cloudflare Edge!"
+
+      - name: Notify Telegram (Failed)
+        if: failure()
+        run: bash scripts/tele_notify.sh "❌ <b>CẢNH BÁO:</b> Quá trình CI/CD bị sập giữa chừng, vui lòng xem Log trên Github Actions!"
